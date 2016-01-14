@@ -22,8 +22,8 @@ enum intersectPos {
 };
 
 enum materialType {
-	reflect,
-	reflect_and_refract,
+	_reflect,
+	_refract,
 };
 struct intersectP{
 	vec3 normal;

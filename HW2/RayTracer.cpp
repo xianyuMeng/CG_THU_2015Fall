@@ -51,32 +51,7 @@ void RayTracer::trace(Ray &ray, int depth, vec3 *color) {
 	}
 
 	vec3 I = hitPoint.obj.ambient + hitPoint.obj.emission;
-	for (size_t i = 0; i < Light.size(); ++i) {
-		float t;
-		Ray shadowRay = Light[i]->GenerateRay(hitPoint.intersectPoint, &t);
-		intersectP hitPointShadow;
-		bool is_block = false;
-		for (size_t j = 0; j < Primitive.size(); ++j) {
-			hitPointShadow = Primitive[j]->intersection(shadowRay);
-			if(hitPointShadow.tHit < t - NEAR && hitPointShadow.tHit > NEAR) {
-				is_block = true;
-				break;
-			}
-		}
-		if (!is_block) {
-			vec3 L = shadowRay.direction;
-			vec3 N = hitPoint.normal;
-			vec3 eye = -ray.direction;
-			vec3 H = normalize(eye + L);
-			vec3 diffuse_color = Light[i]->color * hitPoint.obj.diffuse * max(dot(N, L), 0.0f);
-			vec3 specualr_color = Light[i]->color * hitPoint.obj.specular * pow(max(dot(N, H), 0.0f), hitPoint.obj.shininess);
-			float distance = t;
-			float atten = Light[i]->attenuation.x + Light[i]->attenuation.y * distance + Light[i]->attenuation.z * pow(distance, 2);
-			vec3 V = (diffuse_color + specualr_color) / atten;
-			I += V;
-		}
-		
-	}
+
 	/*
 	vec3 reflect = glm::reflect(ray.direction, hitPoint.normal);
 	Ray reflectRay = Ray(reflect, hitPoint.intersectPoint, 0.0f, FarFarAway);
@@ -89,41 +64,47 @@ void RayTracer::trace(Ray &ray, int depth, vec3 *color) {
 		vec3 refract;
 		vec3 transmitColor;
 		if (hitPoint.intersectPos == intersect_inside) {
-			float critical_angle = asin(1.0f / hitPoint.obj.transparency) * 180.0f / pi;
-			bool is_critical = abs(abs(dot(ray.direction, hitPoint.normal)) - abs(cos(critical_angle))) < NEAR ? true : false;
-			if (is_critical == true) {
-				vec3 reflect = glm::reflect(ray.direction, hitPoint.normal);
-				Ray reflectRay = Ray(reflect, hitPoint.intersectPoint, 0.0f, FarFarAway);
-				vec3 mirrorColor;
-				trace(reflectRay, depth, &mirrorColor);
-				I += mirrorColor * hitPoint.obj.specular;
-			}
-			else {
-				refract = glm::refract(ray.direction, -hitPoint.normal, hitPoint.obj.transparency);
+			refract = glm::refract(ray.direction, -hitPoint.normal, hitPoint.obj.transparency);
+			if (length(refract) > 0.5f) {
 				Ray refractRay = Ray(refract, hitPoint.intersectPoint, 0.0f, FarFarAway);
 				trace(refractRay, depth, &transmitColor);
 				I += transmitColor * hitPoint.obj.specular;
 			}
 		}
 		else {
-			float critical_angle = asin(hitPoint.obj.transparency) * 180.0f / pi;
-			bool is_critical = abs(abs(dot(ray.direction, hitPoint.normal)) - abs(cos(critical_angle))) < NEAR ? true : false;
-			if (is_critical == true) {
-				vec3 reflect = glm::reflect(ray.direction, hitPoint.normal);
-				Ray reflectRay = Ray(reflect, hitPoint.intersectPoint, 0.0f, FarFarAway);
-				vec3 mirrorColor;
-				trace(reflectRay, depth, &mirrorColor);
-				I += mirrorColor * hitPoint.obj.specular;
-			}
-			else {
-				refract = glm::refract(ray.direction, hitPoint.normal, 1.0f / hitPoint.obj.transparency);
-				Ray refractRay = Ray(refract, hitPoint.intersectPoint, 0.0f, FarFarAway);
-				trace(refractRay, depth, &transmitColor);
-				I += transmitColor * hitPoint.obj.specular;
-			}	
+			refract = glm::refract(ray.direction, hitPoint.normal, 1.0f / hitPoint.obj.transparency);
+			Ray refractRay = Ray(refract, hitPoint.intersectPoint, 0.0f, FarFarAway);
+			trace(refractRay, depth, &transmitColor);
+			I += transmitColor * hitPoint.obj.specular;
 		}
 	}
 	else {
+		for (size_t i = 0; i < Light.size(); ++i) {
+			float t;
+			Ray shadowRay = Light[i]->GenerateRay(hitPoint.intersectPoint, &t);
+			intersectP hitPointShadow;
+			bool is_block = false;
+			for (size_t j = 0; j < Primitive.size(); ++j) {
+				hitPointShadow = Primitive[j]->intersection(shadowRay);
+				if (hitPointShadow.tHit < t - NEAR && hitPointShadow.tHit > NEAR) {
+					is_block = true;
+					break;
+				}
+			}
+			if (!is_block) {
+				vec3 L = shadowRay.direction;
+				vec3 N = hitPoint.normal;
+				vec3 eye = -ray.direction;
+				vec3 H = normalize(eye + L);
+				vec3 diffuse_color = Light[i]->color * hitPoint.obj.diffuse * max(dot(N, L), 0.0f);
+				vec3 specualr_color = Light[i]->color * hitPoint.obj.specular * pow(max(dot(N, H), 0.0f), hitPoint.obj.shininess);
+				float distance = t;
+				float atten = Light[i]->attenuation.x + Light[i]->attenuation.y * distance + Light[i]->attenuation.z * pow(distance, 2);
+				vec3 V = (diffuse_color + specualr_color) / atten;
+				I += V;
+			}
+
+		}
 		vec3 reflect = glm::reflect(ray.direction, hitPoint.normal);
 		Ray reflectRay = Ray(reflect, hitPoint.intersectPoint, 0.0f, FarFarAway);
 		vec3 mirrorColor;
@@ -309,7 +290,7 @@ RayTracer::RayTracer(const char *filename) {
 				else if (cmd == "transparency") {
 					validinput = readvals(s, 1, values);
 					if (validinput) {
-						obj.transparency = validinput;
+						obj.transparency = values[0];
 					}
 				}
 
@@ -328,18 +309,16 @@ RayTracer::~RayTracer() {
 		delete Primitive[i];
 	}
 }
-static const int thread_num = 4;
+static const int thread_num = 1;
 void RayTracer::call_from_thread(int tid, int *total){
 	for (int i = width / thread_num * (tid); i < width / thread_num * (tid + 1); ++i){
 		for (int j = 0; j < height; ++j){
-			//float percent = float(i * height + j) / float(width * height);
-			//std::cout << "\r";
-			//std::cout << "Well: " << fixed << setprecision(2) << percent * 100.0f << "%";
-			if (i == 297 - 1 && j == height - 163){
+			if (i == 300 - 1 && j == height - 190){
 				int x = 1;
 				x++;
 			}
 			Ray ray = camera->GenerateRay(i, j);
+			//Ray ray(normalize(vec3(0, -1, 0) - vec3(0, 2, 2)), vec3(0, 2, 2), NEAR, FarFarAway);
 			vec3 color(0.0, 0.0, 0.0);
 			trace(ray, depth, &color);
 			film->commit(color, i, j);

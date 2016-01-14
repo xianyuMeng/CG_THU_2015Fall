@@ -12,9 +12,9 @@ Film::~Film(){
 
 void Film::commit(const vec3 &color, int i, int j){
 	int step = j * width * 3 + i * 3;
-	auto r = unsigned char(color.x * 255.0f);
-	auto g = unsigned char(color.y * 255.0f);
-	auto b = unsigned char(color.z * 255.0f);
+	auto r = unsigned char(clamp(color.x, 0.0f, 1.0f) * 255.0f);
+	auto g = unsigned char(clamp(color.y, 0.0f, 1.0f) * 255.0f);
+	auto b = unsigned char(clamp(color.z, 0.0f, 1.0f) * 255.0f);
 	colorbuffer[step] = b;
 	colorbuffer[step + 1] = g;
 	colorbuffer[step + 2] = r;
