@@ -91,7 +91,7 @@ void RayTracer::trace(Ray &ray, int depth, vec3 *color) {
 		if (hitPoint.intersectPos == intersect_inside) {
 			float critical_angle = asin(1.0f / hitPoint.obj.transparency) * 180.0f / pi;
 			bool is_critical = abs(abs(dot(ray.direction, hitPoint.normal)) - abs(cos(critical_angle))) < NEAR ? true : false;
-			if (critical_angle == true) {
+			if (is_critical == true) {
 				vec3 reflect = glm::reflect(ray.direction, hitPoint.normal);
 				Ray reflectRay = Ray(reflect, hitPoint.intersectPoint, 0.0f, FarFarAway);
 				vec3 mirrorColor;
@@ -108,7 +108,7 @@ void RayTracer::trace(Ray &ray, int depth, vec3 *color) {
 		else {
 			float critical_angle = asin(hitPoint.obj.transparency) * 180.0f / pi;
 			bool is_critical = abs(abs(dot(ray.direction, hitPoint.normal)) - abs(cos(critical_angle))) < NEAR ? true : false;
-			if (critical_angle == true) {
+			if (is_critical == true) {
 				vec3 reflect = glm::reflect(ray.direction, hitPoint.normal);
 				Ray reflectRay = Ray(reflect, hitPoint.intersectPoint, 0.0f, FarFarAway);
 				vec3 mirrorColor;
