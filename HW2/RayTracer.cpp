@@ -84,21 +84,44 @@ void RayTracer::trace(Ray &ray, int depth, vec3 *color) {
 	trace(reflectRay, depth, &mirrorColor);
 	I += mirrorColor * hitPoint.obj.specular;
 	*/
-	
+
 	if (hitPoint.materialType == _refract) {
 		vec3 refract;
 		vec3 transmitColor;
 		if (hitPoint.intersectPos == intersect_inside) {
-			refract = glm::refract(ray.direction, -hitPoint.normal, hitPoint.obj.transparency);
-			Ray refractRay = Ray(refract, hitPoint.intersectPoint, 0.0f, FarFarAway);
-			trace(refractRay, depth, &transmitColor);
+			float critical_angle = asin(1.0f / hitPoint.obj.transparency) * 180.0f / pi;
+			bool is_critical = abs(abs(dot(ray.direction, hitPoint.normal)) - abs(cos(critical_angle))) < NEAR ? true : false;
+			if (critical_angle == true) {
+				vec3 reflect = glm::reflect(ray.direction, hitPoint.normal);
+				Ray reflectRay = Ray(reflect, hitPoint.intersectPoint, 0.0f, FarFarAway);
+				vec3 mirrorColor;
+				trace(reflectRay, depth, &mirrorColor);
+				I += mirrorColor * hitPoint.obj.specular;
+			}
+			else {
+				refract = glm::refract(ray.direction, -hitPoint.normal, hitPoint.obj.transparency);
+				Ray refractRay = Ray(refract, hitPoint.intersectPoint, 0.0f, FarFarAway);
+				trace(refractRay, depth, &transmitColor);
+				I += transmitColor * hitPoint.obj.specular;
+			}
 		}
 		else {
-			refract = glm::refract(ray.direction, hitPoint.normal, 1.0f / hitPoint.obj.transparency);
-			Ray refractRay = Ray(refract, hitPoint.intersectPoint, 0.0f, FarFarAway);
-			trace(refractRay, depth, &transmitColor);
+			float critical_angle = asin(hitPoint.obj.transparency) * 180.0f / pi;
+			bool is_critical = abs(abs(dot(ray.direction, hitPoint.normal)) - abs(cos(critical_angle))) < NEAR ? true : false;
+			if (critical_angle == true) {
+				vec3 reflect = glm::reflect(ray.direction, hitPoint.normal);
+				Ray reflectRay = Ray(reflect, hitPoint.intersectPoint, 0.0f, FarFarAway);
+				vec3 mirrorColor;
+				trace(reflectRay, depth, &mirrorColor);
+				I += mirrorColor * hitPoint.obj.specular;
+			}
+			else {
+				refract = glm::refract(ray.direction, hitPoint.normal, 1.0f / hitPoint.obj.transparency);
+				Ray refractRay = Ray(refract, hitPoint.intersectPoint, 0.0f, FarFarAway);
+				trace(refractRay, depth, &transmitColor);
+				I += transmitColor * hitPoint.obj.specular;
+			}	
 		}
-		I += transmitColor * hitPoint.obj.specular;
 	}
 	else {
 		vec3 reflect = glm::reflect(ray.direction, hitPoint.normal);
