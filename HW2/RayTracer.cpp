@@ -77,14 +77,17 @@ void RayTracer::trace(Ray &ray, int depth, vec3 *color) {
 		}
 		
 	}
+	/*
 	vec3 reflect = glm::reflect(ray.direction, hitPoint.normal);
 	Ray reflectRay = Ray(reflect, hitPoint.intersectPoint, 0.0f, FarFarAway);
 	vec3 mirrorColor;
 	trace(reflectRay, depth, &mirrorColor);
 	I += mirrorColor * hitPoint.obj.specular;
-	vec3 refract;
-	vec3 transmitColor;
-	if (hitPoint.materialType == reflect_and_refract) {
+	*/
+	
+	if (hitPoint.materialType == _refract) {
+		vec3 refract;
+		vec3 transmitColor;
 		if (hitPoint.intersectPos == intersect_inside) {
 			refract = glm::refract(ray.direction, -hitPoint.normal, hitPoint.obj.transparency);
 			Ray refractRay = Ray(refract, hitPoint.intersectPoint, 0.0f, FarFarAway);
@@ -96,6 +99,13 @@ void RayTracer::trace(Ray &ray, int depth, vec3 *color) {
 			trace(refractRay, depth, &transmitColor);
 		}
 		I += transmitColor * hitPoint.obj.specular;
+	}
+	else {
+		vec3 reflect = glm::reflect(ray.direction, hitPoint.normal);
+		Ray reflectRay = Ray(reflect, hitPoint.intersectPoint, 0.0f, FarFarAway);
+		vec3 mirrorColor;
+		trace(reflectRay, depth, &mirrorColor);
+		I += mirrorColor * hitPoint.obj.specular;
 	}
 	*color = I;
 }
@@ -302,7 +312,7 @@ void RayTracer::call_from_thread(int tid, int *total){
 			//float percent = float(i * height + j) / float(width * height);
 			//std::cout << "\r";
 			//std::cout << "Well: " << fixed << setprecision(2) << percent * 100.0f << "%";
-			if (i == 410 - 1 && j == height - 286){
+			if (i == 297 - 1 && j == height - 163){
 				int x = 1;
 				x++;
 			}
