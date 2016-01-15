@@ -3,7 +3,10 @@
 #include <iomanip>
 #include<thread>
 
+
 using namespace std;
+default_random_engine RayTracer::generator;
+
 bool RayTracer::readvals(stringstream &s, const int numvals, float* values)
 {
 	for (int i = 0; i < numvals; i++) {
@@ -21,8 +24,31 @@ void RayTracer::rightmultiply(const mat4 & M, stack<mat4> &transfstack)
 		T = T * M;
 }
 
-inline float RayTracer::fresnel(const vec3 &I, const vec3 &N, const float transparency) {
+pair<float, float> RayTracer::uniformSampleCircle() {
+	uniform_real_distribution<float> distribution;
+	float theta = 2.0f * pi * distribution(generator);
+	float radius = sqrtf(distribution(generator));
+	return make_pair(radius, theta);
+}
 
+vec3 RayTracer::cosineSampleHemisphere(const vec3 &normal, const vec3 &t, const vec3 &s) {
+	// Sample in a circle.
+	auto sample = uniformSampleCircle();
+
+	// Transform it into the hemisphere.
+	float cosTheta = sqrtf(1.0f - sample.first * sample.first);
+	vec3 direction = (t * cos(sample.second) + s * sin(sample.second)) * sample.first + normal * cosTheta;
+	return normalize(direction);
+}
+
+pair<vec3, vec3> RayTracer::getCoords(const vec3 &normal) {
+	//vec3 normal = hit.pos == INTERSECTION_OUT ? hit.normal : -hit.normal;
+	pair<vec3, vec3> ret;
+	// Choose the local coordinate.
+	ret.first = normal.x > 0.9f ? vec3(normal.y, -normal.x, 0.0f) : vec3(0.0f, normal.z, normal.y);
+	ret.first = normalize(ret.first);
+	ret.second = cross(normal, ret.second);
+	return ret;
 }
 
 void RayTracer::trace(Ray &ray, int depth, vec3 *color) {
@@ -49,9 +75,8 @@ void RayTracer::trace(Ray &ray, int depth, vec3 *color) {
 	if ((hitPoint.tHit >= FarFarAway - NEAR) || (hitPoint.tHit < NEAR)) {
 		return;
 	}
-
+	
 	vec3 I = hitPoint.obj.ambient + hitPoint.obj.emission;
-
 	/*
 	vec3 reflect = glm::reflect(ray.direction, hitPoint.normal);
 	Ray reflectRay = Ray(reflect, hitPoint.intersectPoint, 0.0f, FarFarAway);
@@ -64,17 +89,38 @@ void RayTracer::trace(Ray &ray, int depth, vec3 *color) {
 		vec3 refract;
 		vec3 transmitColor;
 		if (hitPoint.intersectPos == intersect_inside) {
-			refract = glm::refract(ray.direction, -hitPoint.normal, hitPoint.obj.transparency);
+			for (int i = 0; i <= 7; ++i) {
+				vec3 sColor;
+				sColor.x = sColor.y = sColor.z = 0;
+				pair<vec3, vec3> coords = RayTracer::getCoords(-hitPoint.normal);
+				vec3 direction = RayTracer::cosineSampleHemisphere(hitPoint.normal, coords.first, coords.second);
+				trace(Ray(direction, hitPoint.intersectPoint, 0.0f, FarFarAway), depth, &sColor);
+				transmitColor += sColor;
+			}
+			/*refract = glm::refract(ray.direction, -hitPoint.normal, hitPoint.obj.transparency);
 			if (length(refract) > 0.5f) {
 				Ray refractRay = Ray(refract, hitPoint.intersectPoint, 0.0f, FarFarAway);
 				trace(refractRay, depth, &transmitColor);
-				I += transmitColor * hitPoint.obj.specular;
-			}
+				I += transmitColor * hitPoint.obj.specular;*/
+			transmitColor / vec3(4, 4, 4);
+			I += transmitColor * hitPoint.obj.specular;
 		}
 		else {
+			/*
 			refract = glm::refract(ray.direction, hitPoint.normal, 1.0f / hitPoint.obj.transparency);
 			Ray refractRay = Ray(refract, hitPoint.intersectPoint, 0.0f, FarFarAway);
 			trace(refractRay, depth, &transmitColor);
+			I += transmitColor * hitPoint.obj.specular;
+			*/
+			for (int i = 0; i <= 7; ++i) {
+				vec3 sColor;
+				sColor.x = sColor.y = sColor.z = 0;
+				pair<vec3, vec3> coords = RayTracer::getCoords(hitPoint.normal);
+				vec3 direction = RayTracer::cosineSampleHemisphere(hitPoint.normal, coords.first, coords.second);
+				trace(Ray(direction, hitPoint.intersectPoint, 0.0f, FarFarAway), depth, &sColor);
+				transmitColor += sColor;
+			}
+			transmitColor / vec3(4, 4, 4);
 			I += transmitColor * hitPoint.obj.specular;
 		}
 	}
@@ -105,11 +151,24 @@ void RayTracer::trace(Ray &ray, int depth, vec3 *color) {
 			}
 
 		}
+		/*
 		vec3 reflect = glm::reflect(ray.direction, hitPoint.normal);
 		Ray reflectRay = Ray(reflect, hitPoint.intersectPoint, 0.0f, FarFarAway);
 		vec3 mirrorColor;
 		trace(reflectRay, depth, &mirrorColor);
 		I += mirrorColor * hitPoint.obj.specular;
+		*/
+		vec3 reflectColor;
+		for (int i = 0; i <= 7; ++i) {
+			vec3 sColor;
+			sColor.x = sColor.y = sColor.z = 0;
+			pair<vec3, vec3> coords = RayTracer::getCoords(hitPoint.normal);
+			vec3 direction = RayTracer::cosineSampleHemisphere(hitPoint.normal, coords.first, coords.second);
+			trace(Ray(direction, hitPoint.intersectPoint, 0.0f, FarFarAway), depth, &sColor);
+			reflectColor += sColor;
+		}
+		reflectColor /= vec3(4, 4, 4);
+		I += reflectColor * hitPoint.obj.specular;
 	}
 	*color = I;
 }
@@ -309,7 +368,7 @@ RayTracer::~RayTracer() {
 		delete Primitive[i];
 	}
 }
-static const int thread_num = 1;
+static const int thread_num = 4;
 void RayTracer::call_from_thread(int tid, int *total){
 	for (int i = width / thread_num * (tid); i < width / thread_num * (tid + 1); ++i){
 		for (int j = 0; j < height; ++j){
