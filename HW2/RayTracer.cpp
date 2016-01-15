@@ -372,14 +372,16 @@ static const int thread_num = 4;
 void RayTracer::call_from_thread(int tid, int *total){
 	for (int i = width / thread_num * (tid); i < width / thread_num * (tid + 1); ++i){
 		for (int j = 0; j < height; ++j){
-			vec3 Color(0.0, 0.0, 0.0);
+			//vec3 Color(0.0, 0.0, 0.0);
 			for (float fragmentx = i; fragmentx < i + 1.0f; fragmentx += 0.5f) {
 				for (float fragmenty = j; fragmenty < j + 1.0f; fragmenty += 0.5f) {
 					Ray ray = camera->GenerateRay(i, j);
 					//Ray ray(normalize(vec3(0, -1, 0) - vec3(0, 2, 2)), vec3(0, 2, 2), NEAR, FarFarAway);
 					vec3 color(0.0, 0.0, 0.0);
 					trace(ray, depth, &color);
-					Color += color/vec3(4, 4, 4);
+					color /= vec3(4, 4, 4);
+					film->commit(color, fragmentx, fragmenty);
+					//Color += color/vec3(4, 4, 4);
 				}
 			}
 			/*
@@ -390,8 +392,8 @@ void RayTracer::call_from_thread(int tid, int *total){
 			Ray ray = camera->GenerateRay(i, j);
 			//Ray ray(normalize(vec3(0, -1, 0) - vec3(0, 2, 2)), vec3(0, 2, 2), NEAR, FarFarAway);
 			vec3 color(0.0, 0.0, 0.0);
-			trace(ray, depth, &color);*/
-			film->commit(Color, i, j);
+			trace(ray, depth, &color);
+			film->commit(Color, i, j);*/
 			(*total)++;
 		}
 	}
